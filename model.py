@@ -63,6 +63,19 @@ def prepare_image_steering():
     image_paths_series = df[['center', 'left', 'right']].values
     steerings_series = df['steering'].values
 
+    return image_paths_series, steerings_series
+
+
+image_paths, steerings = prepare_image_steering()
+
+
+def read_image(img_paths):
+    read_image_array = []
+    for image_array in img_paths:
+        # To read the image paths we provided and store the actual image it contains:
+        read_img = cv2.imread(image_array)
+        read_image_array.append(read_img)
+    return np.array(read_image_array)
     # for images, ste in zip(image_paths_series, steerings_series):
     #     aug_imgs = []
     #     for img in images:
@@ -73,7 +86,19 @@ def prepare_image_steering():
     #     # Flipping Steering angle
     #     np.append(steerings_series, ste * -1.0)
 
-    return image_paths_series, steerings_series
+
+read_image_arrays = np.array(list(map(read_image, image_paths)))
 
 
-image_paths, steerings = prepare_image_steering()
+def img_preprocess(img_array):
+    processed_image_array = []
+    for img in img_array:
+        # NVidia Model requires to change our image color-space from RGB to YUV
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+        # Applying 3x3-Kernel GaussianBlur to smooth the image and reduce noise
+        img = cv2.GaussianBlur(img, (3, 3), 0)
+        processed_image_array.append(img)
+    return np.array(processed_image_array)
+
+
+x_train = np.array(list(map(img_preprocess, read_image_arrays)))
