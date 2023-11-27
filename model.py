@@ -1,25 +1,14 @@
-import os
+import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
-import ntpath
 
 # To specify the directory, so we can read and manipulate the image data and cvs files
 datadir = "training_set/IMG/"
 
 col = ['center', 'left', 'right', 'steering', 'throttle', 'reverse', 'speed']
-df = pd.read_csv(os.path.join(datadir, 'driving_log.csv'), names=col)
-
-
-def path_leaf(path):
-    head, tail = ntpath.split(path)
-    return tail
-
-
-df['center'] = df['center'].apply(path_leaf)
-df['left'] = df['left'].apply(path_leaf)
-df['right'] = df['right'].apply(path_leaf)
+df = pd.read_csv('training_set/IMG/driving_log.csv', names=col)
 
 print('total data:', len(df))
 
@@ -63,14 +52,28 @@ plt.savefig('hist2.png')
 
 # Preparing Image and Steering data
 def prepare_image_steering():
-    image_path = []
-    steering = []
-    for index, row in df.iterrows():
-        image_path.append(os.path.join(datadir, row["center"].strip()))
-        steering.append(float(row["steering"]))
-    image_paths_array = np.asarray(image_path)
-    steering_array = np.asarray(steering)
-    return image_paths_array, steering_array
+    # image_path = []
+    # steering = []
+    # for index, row in df.iterrows():
+    #     image_path.append(os.path.join(datadir, row["center"].strip()))
+    #     steering.append(float(row["steering"]))
+    # image_paths_array = np.asarray(image_path)
+    # steering_array = np.asarray(steering)
+    # return image_paths_array, steering_array
+    image_paths_series = df[['center', 'left', 'right']].values
+    steerings_series = df['steering'].values
+
+    # for images, ste in zip(image_paths_series, steerings_series):
+    #     aug_imgs = []
+    #     for img in images:
+    #         image_open = cv2.imread(img)
+    #         # Flipping the image
+    #         aug_imgs.append((cv2.flip(image_open, 1)))
+    #     np.append(image_paths_series, aug_imgs)
+    #     # Flipping Steering angle
+    #     np.append(steerings_series, ste * -1.0)
+
+    return image_paths_series, steerings_series
 
 
 image_paths, steerings = prepare_image_steering()
