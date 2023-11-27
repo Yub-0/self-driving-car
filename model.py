@@ -2,56 +2,64 @@ import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from keras.src.optimizers import Adam
 from sklearn.utils import shuffle
+from keras.models import Sequential
+from keras.layers import Conv2D, Dropout, Flatten, Dense, Lambda, Cropping2D
 
 # To specify the directory, so we can read and manipulate the image data and cvs files
 datadir = "training_set/IMG/"
 
-col = ['center', 'left', 'right', 'steering', 'throttle', 'reverse', 'speed']
-df = pd.read_csv('training_set/IMG/driving_log.csv', names=col)
 
-print('total data:', len(df))
+def load_data():
+    col = ['center', 'left', 'right', 'steering', 'throttle', 'reverse', 'speed']
+    df = pd.read_csv('training_set/IMG/driving_log.csv', names=col)
+    print('total data:', len(df))
+    return df
+
 
 # Balancing DATA
-# To flatten and cut off the steering values where sum exceeds 250 and make it more uniform
-num_bins = 25
+def balance_data(df):
+    # To flatten and cut off the steering values where sum exceeds 250 and make it more uniform
+    num_bins = 25
 
-# Before Removal
-hist, bins = np.histogram(df['steering'], num_bins)
-center = (bins[:-1] + bins[1:]) * 0.5
-plt.bar(x=center, height=hist, width=0.05)
-plt.savefig('hist1.png')
+    # Before Removal
+    hist, bins = np.histogram(df['steering'], num_bins)
+    center = (bins[:-1] + bins[1:]) * 0.5
+    plt.bar(x=center, height=hist, width=0.05)
+    plt.savefig('hist1.png')
 
-samples_per_bin = 250
-remove_list = []
-for j in range(num_bins):
-    list_ = []
-    for i in range(df.count().iloc[0]):
-        # If the steering angle falls in between two bins, then it belongs to the interval j
-        if bins[j] <= df['steering'][i] <= bins[j + 1]:
-            list_.append(i)
-            # Eventually, this list will contain all the steering numbers from a specific bin.
-            # Because our threshold in this project is max 250 steering numbers per bin,
-            # we need to reject the exceeding ones, and, because the numbers are stored in an array in order,
-            # we need to shuffle first (if we just reject the last ones,
-            # we may be rejecting information from the end of our track which is bad for our model to
-            # predict how to drive properly on the end of the track)
-    list_ = shuffle(list_)
-    list_ = list_[samples_per_bin:]
-    remove_list.extend(list_)
+    samples_per_bin = 250
+    remove_list = []
+    for j in range(num_bins):
+        list_ = []
+        for i in range(df.count().iloc[0]):
+            # If the steering angle falls in between two bins, then it belongs to the interval j
+            if bins[j] <= df['steering'][i] <= bins[j + 1]:
+                list_.append(i)
+                # Eventually, this list will contain all the steering numbers from a specific bin.
+                # Because our threshold in this project is max 250 steering numbers per bin,
+                # we need to reject the exceeding ones, and, because the numbers are stored in an array in order,
+                # we need to shuffle first (if we just reject the last ones,
+                # we may be rejecting information from the end of our track which is bad for our model to
+                # predict how to drive properly on the end of the track)
+        list_ = shuffle(list_)
+        list_ = list_[samples_per_bin:]
+        remove_list.extend(list_)
 
-print('removed:', len(remove_list))
-df.drop(df.index[remove_list], inplace=True)
-print('remaining:', len(df))
+    print('removed:', len(remove_list))
+    df.drop(df.index[remove_list], inplace=True)
+    print('remaining:', len(df))
 
-# After Removal
-hist, bins = np.histogram(df['steering'], num_bins)
-plt.bar(x=center, height=hist, width=0.05)
-plt.savefig('hist2.png')
+    # After Removal
+    hist, bins = np.histogram(df['steering'], num_bins)
+    plt.bar(x=center, height=hist, width=0.05)
+    plt.savefig('hist2.png')
+    return df
 
 
 # Preparing Image and Steering data
-def prepare_image_steering():
+def prepare_image_steering(df):
     # image_path = []
     # steering = []
     # for index, row in df.iterrows():
@@ -64,9 +72,6 @@ def prepare_image_steering():
     steerings_series = df['steering'].values
 
     return image_paths_series, steerings_series
-
-
-image_paths, steerings = prepare_image_steering()
 
 
 def read_image(img_paths):
@@ -87,9 +92,6 @@ def read_image(img_paths):
     #     np.append(steerings_series, ste * -1.0)
 
 
-read_image_arrays = np.array(list(map(read_image, image_paths)))
-
-
 def img_preprocess(img_array):
     processed_image_array = []
     for img in img_array:
@@ -97,8 +99,50 @@ def img_preprocess(img_array):
         img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
         # Applying 3x3-Kernel GaussianBlur to smooth the image and reduce noise
         img = cv2.GaussianBlur(img, (3, 3), 0)
+        img = cv2.resize(img, (200, 66))
         processed_image_array.append(img)
     return np.array(processed_image_array)
 
 
-x_train = np.array(list(map(img_preprocess, read_image_arrays)))
+def build_model():
+    model = Sequential()
+    model.add(Lambda(lambda x: (x / 255) - 0.5, input_shape=(160, 320, 3)))
+
+    # Image cropping to get rid of the irrelevant parts of the image (hood, skies and trees)
+    model.add(Cropping2D(cropping=((50, 20), (0, 0)), input_shape=(160, 320, 3)))
+
+    # The layers
+    model.add(Conv2D(filters=24, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
+    model.add(Conv2D(filters=36, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
+    model.add(Conv2D(filters=48, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
+    model.add(Conv2D(filters=64, kernel_size=(3, 3), activation='relu'))
+    model.add(Conv2D(filters=64, kernel_size=(3, 3), activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Flatten())
+    model.add(Dense(units=100, activation='relu'))
+    model.add(Dense(units=50, activation='relu'))
+    model.add(Dense(units=10, activation='relu'))
+    model.add(Dense(units=1))
+    optimizer = Adam(lr=0.0004)
+    model.compile(loss='mse', optimizer=optimizer)
+    return model
+
+
+def train_model(model, x_data, y_data):
+    model.fit(x_data, y_data, batch_size=100, epoch=10, verbose=1, validation_split=0.2, shuffle=True)
+    model.save('model.h5')
+
+
+def main():
+    dataframe = load_data()
+    dataframe = balance_data(dataframe)
+    image_paths_series, steerings_series = prepare_image_steering(dataframe)
+    read_image_arrays = np.array(list(map(read_image, image_paths_series)))
+    x_data = np.array(list(map(img_preprocess, read_image_arrays)))
+    y_data = steerings_series
+    model = build_model()
+    train_model(model, x_data, y_data)
+
+
+if __name__ == '__main__':
+    main()
