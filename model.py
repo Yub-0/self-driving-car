@@ -95,6 +95,8 @@ def read_image(img_paths):
 def img_preprocess(img_array):
     processed_image_array = []
     for img in img_array:
+        # Image cropping to get rid of the irrelevant parts of the image (hood, skies and trees)
+        img = img[20:50, :, :]
         # NVidia Model requires to change our image color-space from RGB to YUV
         img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
         # Applying 3x3-Kernel GaussianBlur to smooth the image and reduce noise
@@ -106,11 +108,7 @@ def img_preprocess(img_array):
 
 def build_model():
     model = Sequential()
-    model.add(Lambda(lambda x: (x / 255) - 0.5, input_shape=(160, 320, 3)))
-
-    # Image cropping to get rid of the irrelevant parts of the image (hood, skies and trees)
-    model.add(Cropping2D(cropping=((50, 20), (0, 0)), input_shape=(160, 320, 3)))
-
+    # model.add(Lambda(lambda x: (x / 255) - 0.5))
     # The layers
     model.add(Conv2D(filters=24, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
     model.add(Conv2D(filters=36, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
@@ -129,7 +127,7 @@ def build_model():
 
 
 def train_model(model, x_data, y_data):
-    model.fit(x_data, y_data, batch_size=100, epoch=10, verbose=1, validation_split=0.2, shuffle=True)
+    model.fit(x_data, y_data, batch_size=100, epochs=14, verbose=1, validation_split=0.2, shuffle=True)
     model.save('model.h5')
 
 
