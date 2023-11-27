@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 import ntpath
 
-
 # To specify the directory, so we can read and manipulate the image data and cvs files
 datadir = "training_set/IMG/"
 
@@ -24,7 +23,7 @@ df['right'] = df['right'].apply(path_leaf)
 
 print('total data:', len(df))
 
-# BALANCING THE DATA
+# Balancing DATA
 # To flatten and cut off the steering values where sum exceeds 250 and make it more uniform
 num_bins = 25
 
@@ -60,3 +59,18 @@ print('remaining:', len(df))
 hist, bins = np.histogram(df['steering'], num_bins)
 plt.bar(x=center, height=hist, width=0.05)
 plt.savefig('hist2.png')
+
+
+# Preparing Image and Steering data
+def prepare_image_steering():
+    image_path = []
+    steering = []
+    for index, row in df.iterrows():
+        image_path.append(os.path.join(datadir, row["center"].strip()))
+        steering.append(float(row["steering"]))
+    image_paths_array = np.asarray(image_path)
+    steering_array = np.asarray(steering)
+    return image_paths_array, steering_array
+
+
+image_paths, steerings = prepare_image_steering()
