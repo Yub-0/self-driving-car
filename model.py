@@ -109,7 +109,7 @@ def build_model():
     model = Sequential()
     model.add(Lambda(lambda x: (x / 255) - 0.5, input_shape=(160, 320, 3)))
 
-    # Cropping the top 60 pixeld and the bottom 25 pixels from the image
+    # Cropping the top 60 pixels and the bottom 25 pixels from the image
     model.add(Cropping2D(cropping=((60, 25), (0, 0))))
 
     # model.add(Lambda(p))
