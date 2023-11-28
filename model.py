@@ -55,6 +55,7 @@ def balance_data(df):
     hist, bins = np.histogram(df['steering'], num_bins)
     plt.bar(x=center, height=hist, width=0.05)
     plt.savefig('hist2.png')
+    print(len(df.index))
     return df
 
 
@@ -68,47 +69,50 @@ def prepare_image_steering(df):
     # image_paths_array = np.asarray(image_path)
     # steering_array = np.asarray(steering)
     # return image_paths_array, steering_array
-    image_paths_series = df[['center', 'left', 'right']].values
+
+    image_paths_series = df['center'].values
+    image_paths_series = np.append(image_paths_series, df['left'].values)
+    image_paths_series = np.append(image_paths_series, df['right'].values)
     steerings_series = df['steering'].values
+    steerings_series = np.append(steerings_series, df['steering'].values)
+    steerings_series = np.append(steerings_series, df['steering'].values)
 
     return image_paths_series, steerings_series
 
 
-def read_image(img_paths):
-    read_image_array = []
-    for image_array in img_paths:
-        # To read the image paths we provided and store the actual image it contains:
-        read_img = cv2.imread(image_array)
-        read_image_array.append(read_img)
-    return np.array(read_image_array)
-    # for images, ste in zip(image_paths_series, steerings_series):
-    #     aug_imgs = []
-    #     for img in images:
-    #         image_open = cv2.imread(img)
-    #         # Flipping the image
-    #         aug_imgs.append((cv2.flip(image_open, 1)))
-    #     np.append(image_paths_series, aug_imgs)
-    #     # Flipping Steering angle
-    #     np.append(steerings_series, ste * -1.0)
+# def read_image(img_path):
+# To read the image paths we provided and store the actual image it contains:
+# read_img = cv2.imread(img_path)
+# return read_img
+# for images, ste in zip(image_paths_series, steerings_series):
+#     aug_imgs = []
+#     for img in images:
+#         image_open = cv2.imread(img)
+#         # Flipping the image
+#         aug_imgs.append((cv2.flip(image_open, 1)))
+#     np.append(image_paths_series, aug_imgs)
+#     # Flipping Steering angle
+#     np.append(steerings_series, ste * -1.0)
 
 
-def img_preprocess(img_array):
-    processed_image_array = []
-    for img in img_array:
-        # Image cropping to get rid of the irrelevant parts of the image (hood, skies and trees)
-        img = img[20:50, :, :]
-        # NVidia Model requires to change our image color-space from RGB to YUV
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
-        # Applying 3x3-Kernel GaussianBlur to smooth the image and reduce noise
-        img = cv2.GaussianBlur(img, (3, 3), 0)
-        img = cv2.resize(img, (200, 66))
-        processed_image_array.append(img)
-    return np.array(processed_image_array)
+def img_preprocess(img_path):
+    # To read the image paths we provided and store the actual image it contains:
+    img = cv2.imread(img_path)
+    # NVidia Model requires to change our image color-space from RGB to YUV
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    # Applying 3x3-Kernel GaussianBlur to smooth the image and reduce noise
+    img = cv2.GaussianBlur(img, (3, 3), 0)
+    return img
 
 
 def build_model():
     model = Sequential()
-    # model.add(Lambda(lambda x: (x / 255) - 0.5))
+    model.add(Lambda(lambda x: (x / 255) - 0.5, input_shape=(160, 320, 3)))
+
+    # Cropping the top 60 pixeld and the bottom 25 pixels from the image
+    model.add(Cropping2D(cropping=((60, 25), (0, 0))))
+
+    # model.add(Lambda(p))
     # The layers
     model.add(Conv2D(filters=24, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
     model.add(Conv2D(filters=36, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
@@ -127,17 +131,17 @@ def build_model():
 
 
 def train_model(model, x_data, y_data):
-    model.fit(x_data, y_data, batch_size=100, epochs=14, verbose=1, validation_split=0.2, shuffle=True)
+    model.fit(x_data, y_data, batch_size=100, epochs=20, verbose=1, validation_split=0.2, shuffle=True)
     model.save('model.h5')
 
 
 def main():
     dataframe = load_data()
     dataframe = balance_data(dataframe)
-    image_paths_series, steerings_series = prepare_image_steering(dataframe)
-    read_image_arrays = np.array(list(map(read_image, image_paths_series)))
-    x_data = np.array(list(map(img_preprocess, read_image_arrays)))
-    y_data = steerings_series
+    image_paths, steering_values = prepare_image_steering(dataframe)
+    # read_images = np.array(list(map(read_image, image_paths)))
+    x_data = np.array(list(map(img_preprocess, image_paths)))
+    y_data = steering_values
     model = build_model()
     train_model(model, x_data, y_data)
 
